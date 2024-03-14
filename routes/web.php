@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\API\KehadiranController;
+use App\Http\Controllers\API\PegawaiController;
+use App\Http\Controllers\API\UnitController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,3 +21,8 @@ use Illuminate\Support\Facades\Route;
 // });
 
 Route::get('/', [KehadiranController::class, 'index'])->name('index');
+
+Route::get('/getKehadiran', [KehadiranController::class, 'index'])->name('index');
+Route::get('/getPegawai', [PegawaiController::class, 'index'])->name('index');
+Route::get('/getUnit', [UnitController::class, 'index'])->name('index');
+Route::get('/getUnit/{id}', [UnitController::class, 'detail'])->name('index');

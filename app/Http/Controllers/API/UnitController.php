@@ -10,7 +10,7 @@ class UnitController extends Controller
 {
     function index()
     {
-        $unit = PersonnelDepartment::where('id', '!=', 1)->orderBy('dept_name', 'asc')->get();
+        $unit = PersonnelDepartment::select('dept_code as kode_unit','dept_name as nama_unit')->where('id', '!=', 1)->orderBy('dept_name', 'asc')->get();
 
         return response()->json($unit);
     }

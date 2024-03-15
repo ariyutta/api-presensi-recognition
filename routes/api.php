@@ -21,15 +21,13 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Route::prefix('unit')->name('unit.')->group(function () {
-//     Route::get('/', [UnitController::class, 'index'])->name('index');
-//     Route::get('/{idUnit}', [UnitController::class, 'detail'])->name('detail');
-// });
+Route::get('/', [KehadiranController::class, 'index'])->name('index');
 
-// Route::prefix('pegawai')->name('pegawai.')->group(function () {
-//     Route::get('/', [PegawaiController::class, 'index'])->name('index');
-//     Route::get('/{idUnit}', [PegawaiController::class, 'detail'])->name('detail');
-// });
+Route::get('/getKehadiran', [KehadiranController::class, 'index'])->name('index');
+Route::get('/getKehadiranV2', [KehadiranController::class, 'transaksi_kehadiran'])->name('index');
+Route::get('/getPegawai', [PegawaiController::class, 'index'])->name('index');
+Route::get('/getUnit', [UnitController::class, 'index'])->name('index');
+Route::get('/getUnit/{id}', [UnitController::class, 'detail'])->name('index');
 
 Route::prefix('kehadiran')->name('kehadiran.')->group(function () {
     // Route::get('/', [KehadiranController::class, 'index'])->name('index');

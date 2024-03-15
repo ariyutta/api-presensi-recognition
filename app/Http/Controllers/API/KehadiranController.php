@@ -12,8 +12,6 @@ class KehadiranController extends Controller
 {
     function index(Request $request)
     {
-        // return $request->all();
-
         $periode = explode(' - ', $request->periode);
 
         if (count($periode) == 2) {
@@ -42,7 +40,7 @@ class KehadiranController extends Controller
             });
         }
 
-        if ($startDate != null || $endDate != null) {
+        if ($startDate != null && $endDate != null) {
             $punches = $punches->whereBetween('punch_time', [$startDate, $endDate]);
         }
 
@@ -61,51 +59,53 @@ class KehadiranController extends Controller
                 $employeeName = $employee->first_name;
                 $employeeUsername = $employee->last_name;
                 $department = $employee->department->dept_name;
+                $shift_id = $this->getShiftId($punchTime); // Mendapatkan shift_id berdasarkan waktu
 
-                if (!isset($employeeData[$dateKey][$empCode])) {
-                    $employeeData[$dateKey][$empCode] = [
+                if (!isset($employeeData[$dateKey])) {
+                    $employeeData[$dateKey] = [
                         'username' => $employeeUsername,
                         'nama_pegawai' => $employeeName,
                         'unit_departement' => $department,
-                        'tanggal' => $punchTime->format('d/m/Y'),
-                        'jam_keluar' => $punchTime->format('H:i:s'),
-                        'jam_masuk' => $punchTime->format('H:i:s'),
-                        'total_waktu' => 0,
+                        'shift_id' => $shift_id, // Tambahkan shift_id di sini
+                        'tanggal' => $punchTime->format('Y-m-d'),
+                        'jam_masuk' => null,
+                        'jam_keluar' => null,
                     ];
-                } else {
-                    $employeeData[$dateKey][$empCode]['jam_masuk'] = $punchTime->format('H:i:s');
+                }
+
+                // Update jam keluar dan masuk terbaru untuk setiap tanggal
+                if ($employeeData[$dateKey]['jam_keluar'] == null || $punchTime->greaterThan(Carbon::parse($employeeData[$dateKey]['jam_keluar']))) {
+                    $employeeData[$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
+                }
+
+                if ($employeeData[$dateKey]['jam_masuk'] == null || $punchTime->lessThan(Carbon::parse($employeeData[$dateKey]['jam_masuk']))) {
+                    $employeeData[$dateKey]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
                 }
             }
         }
 
-        foreach ($employeeData as &$dateData) {
-            foreach ($dateData as &$data) {
-                $jamMasuk = Carbon::createFromFormat('H:i:s', $data['jam_masuk']);
-                $jamKeluar = Carbon::createFromFormat('H:i:s', $data['jam_keluar']);
-
-                $totalMenit = $jamMasuk->diffInMinutes($jamKeluar);
-
-                if ($totalMenit >= 1440) {
-                    $hari = floor($totalMenit / 1440);
-                    $sisaMenit = $totalMenit % 1440;
-                    $jam = floor($sisaMenit / 60);
-                    $menit = $sisaMenit % 60;
-                    $data['total_waktu'] = $hari . ' Hari ' . $jam . ' Jam ' . $menit . ' Menit';
-                } elseif ($totalMenit >= 60) {
-                    $jam = floor($totalMenit / 60);
-                    $menit = $totalMenit % 60;
-                    $data['total_waktu'] = $jam . ' Jam ' . $menit . ' Menit';
-                } elseif ($totalMenit >= 1) {
-                    $data['total_waktu'] = $totalMenit . ' Menit';
-                } else {
-                    $totalDetik = $totalMenit * 60;
-                    $data['total_waktu'] = $totalDetik . ' Detik';
-                }
-            }
-        }
+        // Mengubah array asosiatif ke array numerik
+        $employeeData = array_values($employeeData);
 
         return response()->json($employeeData);
     }
+
+    private function getShiftId($time)
+    {
+        $shift_id = null;
+        $hour = $time->hour;
+
+        if ($hour >= 7 && $hour < 14) {
+            $shift_id = 1;
+        } elseif ($hour >= 14 && $hour < 19) {
+            $shift_id = 2;
+        } else {
+            $shift_id = 3;
+        }
+
+        return $shift_id;
+    }
+
 
     function transaksi_kehadiran()
     {
@@ -120,7 +120,7 @@ class KehadiranController extends Controller
 
         foreach ($request->all() as $punchData) {
             $randomHour = str_pad(rand(7, 7), 2, '0', STR_PAD_LEFT); // Jam antara 07:00 - 07:30
-            $randomMinute = str_pad(rand(0, 30), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
+            $randomMinute = str_pad(rand(30, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
             $randomSecond = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
             $randomMicrosecond = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
 
@@ -158,6 +158,7 @@ class KehadiranController extends Controller
 
     function store_keluar(Request $request)
     {
+        // return $request->all();
         $punches = [];
 
         foreach ($request->all() as $punchData) {
@@ -166,7 +167,7 @@ class KehadiranController extends Controller
 
             // Jam pulang pada hari Senin - Kamis
             if ($dayOfWeek >= 1 && $dayOfWeek <= 4) {
-                $randomHour = str_pad(rand(16, 17), 2, '0', STR_PAD_LEFT); // Jam antara 16:00 - 17:00
+                $randomHour = str_pad(rand(15, 15), 2, '0', STR_PAD_LEFT); // Jam antara 16:00 - 17:00
                 $randomMinute = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 59
             }
             // Jam pulang pada hari Jumat

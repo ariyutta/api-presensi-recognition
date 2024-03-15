@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [KehadiranController::class, 'index'])->name('index');
 
 Route::get('/getKehadiran', [KehadiranController::class, 'index'])->name('index');
+Route::get('/getKehadiranV2', [KehadiranController::class, 'transaksi_kehadiran'])->name('index');
 Route::get('/getPegawai', [PegawaiController::class, 'index'])->name('index');
 Route::get('/getUnit', [UnitController::class, 'index'])->name('index');
 Route::get('/getUnit/{id}', [UnitController::class, 'detail'])->name('index');

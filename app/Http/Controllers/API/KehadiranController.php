@@ -35,8 +35,10 @@ class KehadiranController extends Controller
         }
 
         if ($request->department_id) {
-            $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
-                $q->where('department_id', $request->department_id);
+            $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
+                $pegawai->whereHas('department', function ($unit) use ($request) {
+                    $unit->where('dept_code', $request->department_id);
+                });
             });
         }
 
@@ -75,11 +77,18 @@ class KehadiranController extends Controller
             }
         }
 
-        foreach ($employeeData as &$dateData) {
-            $dateData = array_values($dateData);
+        $finalOutput = [];
+
+        foreach ($employeeData as $date => $data) {
+            $formattedData = [
+                'tanggal' => $date,
+                'data' => array_values($data),
+            ];
+
+            $finalOutput[] = $formattedData;
         }
-        // $employeeData = array_values($employeeData);
-        return response()->json($employeeData);
+
+        return response()->json($finalOutput);
     }
 
     // private function getShiftId($time)

@@ -62,6 +62,7 @@ class KehadiranController extends Controller
                 $employeeUsername = $employee->last_name;
                 $employeeNIP = $employee->nickname;
                 $department = $employee->department->dept_name;
+                $departmentCode = $employee->department->dept_code;
 
                 if (!isset($employeeData[$dateKey][$empCode])) {
                     $employeeData[$dateKey][$empCode] = [
@@ -69,6 +70,7 @@ class KehadiranController extends Controller
                         'username' => $employeeUsername,
                         'nama_pegawai' => $employeeName,
                         'unit_departement' => $department,
+                        'kode_unit' => $departmentCode,
                         'tanggal' => $punchTime->format('Y-m-d'),
                         'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
                         'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),

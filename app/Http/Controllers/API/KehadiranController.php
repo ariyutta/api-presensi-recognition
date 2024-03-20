@@ -125,7 +125,7 @@ class KehadiranController extends Controller
 
         foreach ($request->all() as $punchData) {
             $randomHour = str_pad(rand(6, 6), 2, '0', STR_PAD_LEFT); // Jam antara 07:00 - 07:30
-            $randomMinute = str_pad(rand(0, 30), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
+            $randomMinute = str_pad(rand(40, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
             $randomSecond = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
             $randomMicrosecond = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
 

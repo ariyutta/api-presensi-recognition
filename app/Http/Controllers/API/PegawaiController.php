@@ -12,12 +12,15 @@ class PegawaiController extends Controller
 {
     function index(Request $request)
     {
-        $strSQL = PersonnelEmployee::select('first_name as nama', 'last_name as username', 'nickname as nip', 'department_id as unit_id')
-            ->whereHas('department', function ($q) use ($request) {
+        $strSQL = PersonnelEmployee::select('first_name as nama', 'last_name as username', 'nickname as nip', 'department_id as unit_id');
+
+        if ($request->unit_id != null) {
+            $strSQL = $strSQL->whereHas('department', function ($q) use ($request) {
                 $q->where('dept_code', $request->unit_id);
-            })
-            ->orderBy('first_name', 'asc')
-            ->get();
+            });
+        }
+
+        $strSQL = $strSQL->orderBy('first_name', 'asc')->get();
 
         $results = [];
 

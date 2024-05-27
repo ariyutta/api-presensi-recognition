@@ -30,7 +30,7 @@ class KehadiranController extends Controller
         if ($request->username) {
             $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
                 $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
-                    ->orWhere('nickname', 'LIKE', '%' . $request->username . '%');
+                    ->orWhere('last_name', 'LIKE', '%' . $request->username . '%');
             });
         }
 

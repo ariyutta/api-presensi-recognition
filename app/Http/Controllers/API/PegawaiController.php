@@ -20,6 +20,10 @@ class PegawaiController extends Controller
             });
         }
 
+        if ($request->nip != null) {
+            $strSQL = $strSQL->where('nickname', $request->nickname);
+        }
+
         $strSQL = $strSQL->orderBy('first_name', 'asc')->get();
 
         $results = [];

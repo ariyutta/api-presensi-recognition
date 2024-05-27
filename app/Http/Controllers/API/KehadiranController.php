@@ -95,22 +95,88 @@ class KehadiranController extends Controller
         return response()->json($finalOutput);
     }
 
-    // private function getShiftId($time)
-    // {
-    //     $shift_id = null;
-    //     $hour = $time->hour;
+    function index_dawai(Request $request)
+    {
+        // Mendapatkan tahun dan bulan dari request
+        $tahun = $request->set_tahun;
+        $bulan = $request->set_bulan;
 
-    //     if ($hour >= 7 && $hour < 14) {
-    //         $shift_id = 1;
-    //     } elseif ($hour >= 14 && $hour < 19) {
-    //         $shift_id = 2;
-    //     } else {
-    //         $shift_id = 3;
-    //     }
+        // Menghitung jumlah hari dalam bulan yang diminta
+        $jumlahHari = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
 
-    //     return $shift_id;
-    // }
+        // Membentuk tanggal awal dan akhir
+        $tanggalAwal = "$tahun-$bulan-01 00:00:00";
+        $tanggalAkhir = "$tahun-$bulan-$jumlahHari 23:59:59";
 
+        $punches = IClockTransaction::orderBy('punch_time', 'desc');
+
+        if ($request->username) {
+            $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
+                $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
+                    ->orWhere('nickname', 'LIKE', '%' . $request->username . '%');
+            });
+        }
+
+        if ($request->department_id) {
+            $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
+                $pegawai->whereHas('department', function ($unit) use ($request) {
+                    $unit->where('dept_code', $request->department_id);
+                });
+            });
+        }
+
+        if ($tanggalAwal != null && $tanggalAkhir != null) {
+            $punches = $punches->whereBetween('punch_time', [$tanggalAwal, $tanggalAkhir]);
+        }
+
+        $punches = $punches->get();
+
+        $employeeData = [];
+
+        foreach ($punches as $punch) {
+            $empCode = $punch->emp_code;
+            $punchTime = Carbon::parse($punch->punch_time);
+            $dateKey = $punchTime->toDateString();
+
+            $employee = PersonnelEmployee::where('emp_code', $empCode)->first();
+
+            if ($employee) {
+                $employeeName = $employee->first_name;
+                $employeeUsername = $employee->last_name;
+                $employeeNIP = $employee->nickname;
+                $department = $employee->department->dept_name;
+                $departmentCode = $employee->department->dept_code;
+
+                if (!isset($employeeData[$dateKey][$empCode])) {
+                    $employeeData[$dateKey][$empCode] = [
+                        'nip' => $employeeNIP,
+                        'username' => $employeeUsername,
+                        'nama_pegawai' => $employeeName,
+                        'unit_departement' => $department,
+                        'kode_unit' => $departmentCode,
+                        'tanggal' => $punchTime->format('Y-m-d'),
+                        'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
+                        'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
+                    ];
+                } else {
+                    $employeeData[$dateKey][$empCode]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                }
+            }
+        }
+
+        $finalOutput = [];
+
+        foreach ($employeeData as $date => $data) {
+            $formattedData = [
+                'tanggal' => $date,
+                'data' => array_values($data),
+            ];
+
+            $finalOutput[] = $formattedData;
+        }
+
+        return response()->json($finalOutput);
+    }
 
     function transaksi_kehadiran()
     {
@@ -124,16 +190,34 @@ class KehadiranController extends Controller
         $punches = [];
 
         foreach ($request->all() as $punchData) {
-            $randomHour = str_pad(rand(6, 6), 2, '0', STR_PAD_LEFT); // Jam antara 07:00 - 07:30
-            $randomMinute = str_pad(rand(40, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
-            $randomSecond = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
-            $randomMicrosecond = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
+            // Menentukan jam acak berdasarkan hari dalam seminggu
+            $dayOfWeek = date('N', strtotime($punchData['punch_time'])); // Mendapatkan hari dalam seminggu (1 untuk Senin, 2 untuk Selasa, dst.)
+
+            // Jam masuk pada hari Senin - Kamis
+            if ($dayOfWeek >= 1 && $dayOfWeek <= 4) {
+                $randomHour = str_pad(random_int(6, 6), 2, '0', STR_PAD_LEFT); // Jam antara 07:00 - 07:30
+                $randomMinute = str_pad(random_int(0, 30), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
+            }
+            // Jam masuk pada hari Jumat
+            elseif ($dayOfWeek === 5) { // Jumat
+                $randomHour = str_pad(random_int(7, 7), 2, '0', STR_PAD_LEFT); // Jam antara 09:00 - 09:30
+                $randomMinute = str_pad(random_int(0, 30), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
+            }
+            // Jam masuk pada hari lainnya (Sabtu - Minggu)
+            else {
+                $randomHour = str_pad(random_int(9, 9), 2, '0', STR_PAD_LEFT); // Jam antara 09:00 - 09:30
+                $randomMinute = str_pad(random_int(0, 30), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 30
+            }
+
+            $randomSecond = str_pad(random_int(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
+            $randomMicrosecond = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
 
             $randomTime = "$randomHour:$randomMinute:$randomSecond";
 
+
             $punch = IClockTransaction::create([
                 'emp_code' => $punchData['emp_code'],
-                'punch_time' => $punchData['punch_time'] . ' ' . $randomTime . '-08', // Tanggal tetap, waktu acak,
+                'punch_time' => $punchData['punch_time'] . ' ' . $randomTime . '-07', // Tanggal tetap, waktu acak,
                 'punch_state' => 0,
                 'verify_type' => 15,
                 'terminal_sn' => $punchData['terminal_sn'],
@@ -172,13 +256,13 @@ class KehadiranController extends Controller
 
             // Jam pulang pada hari Senin - Kamis
             if ($dayOfWeek >= 1 && $dayOfWeek <= 4) {
-                $randomHour = str_pad(rand(14, 14), 2, '0', STR_PAD_LEFT); // Jam antara 16:00 - 17:00
-                $randomMinute = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 59
+                $randomHour = str_pad(random_int(16, 16), 2, '0', STR_PAD_LEFT); // Jam antara 16:00 - 17:00
+                $randomMinute = str_pad(random_int(0, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 59
             }
             // Jam pulang pada hari Jumat
-            elseif ($dayOfWeek == 5) { // Jumat
-                $randomHour = str_pad(rand(15, 15), 2, '0', STR_PAD_LEFT); // Jam antara 17:00 - 18:00
-                $randomMinute = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 59
+            else if ($dayOfWeek === 5) { // Jumat
+                $randomHour = str_pad(random_int(17, 17), 2, '0', STR_PAD_LEFT); // Jam antara 17:00 - 18:00
+                $randomMinute = str_pad(random_int(0, 59), 2, '0', STR_PAD_LEFT); // Menit antara 00 - 59
             }
             // Jam pulang pada hari lainnya (Sabtu - Minggu)
             else {
@@ -187,14 +271,14 @@ class KehadiranController extends Controller
                 $randomMinute = '00';
             }
 
-            $randomSecond = str_pad(rand(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
-            $randomMicrosecond = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
+            $randomSecond = str_pad(random_int(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
+            $randomMicrosecond = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
 
             $randomTime = "$randomHour:$randomMinute:$randomSecond";
 
             $punch = IClockTransaction::create([
                 'emp_code' => $punchData['emp_code'],
-                'punch_time' => $punchData['punch_time'] . ' ' . $randomTime . '-08', // Tanggal tetap, waktu acak,
+                'punch_time' => $punchData['punch_time'] . ' ' . $randomTime . '-07', // Tanggal tetap, waktu acak,
                 'punch_state' => 1,
                 'verify_type' => 15,
                 'terminal_sn' => $punchData['terminal_sn'],

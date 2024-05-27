@@ -1,0 +1,182 @@
+[
+    {
+        "emp_code": 2001,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 454,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2002,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 428,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2003,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 429,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2004,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 430,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2006,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 455,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2008,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 457,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2012,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 461,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2017,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 466,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2018,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 586,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2019,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 587,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2022,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 1182,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 2021,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 1181,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8001,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 634,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8002,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 635,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8003,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 636,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8004,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 637,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8005,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 638,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8006,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 639,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 8016,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 903,
+        "terminal_id": 15
+    },
+    {
+        "emp_code": 5026,
+        "punch_time": "2024-05-20",
+        "terminal_sn": "",
+        "terminal_alias": "",
+        "area_alias": "",
+        "emp_id": 622,
+        "terminal_id": 15
+    }
+]

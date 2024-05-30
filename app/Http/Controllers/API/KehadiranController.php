@@ -147,32 +147,48 @@ class KehadiranController extends Controller
                 $department = $employee->department->dept_name;
                 $departmentCode = $employee->department->dept_code;
 
-                if (!isset($employeeData[$dateKey][$empCode])) {
-                    $employeeData[$dateKey][$empCode] = [
-                        'nip' => $employeeNIP,
-                        'username' => $employeeUsername,
+                if (!isset($employeeData[$empCode])) {
+                    $employeeData[$empCode] = [
                         'nama_pegawai' => $employeeName,
-                        'unit_departement' => $department,
-                        'kode_unit' => $departmentCode,
-                        'tanggal' => $punchTime->format('Y-m-d'),
-                        'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
-                        'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
+                        'total_absen' => 0,
+                        'absen' => []
                     ];
-                } else {
-                    $employeeData[$dateKey][$empCode]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
                 }
+
+                if (!isset($employeeData[$empCode]['absen'][$dateKey])) {
+                    $employeeData[$empCode]['absen'][$dateKey] = [
+                        'tanggal' => $dateKey,
+                        'data' => []
+                    ];
+                    $employeeData[$empCode]['total_absen'] += 1;
+                }
+
+                $employeeData[$empCode]['absen'][$dateKey]['data'][] = [
+                    'nip' => $employeeNIP,
+                    'username' => $employeeUsername,
+                    'nama_pegawai' => $employeeName,
+                    'unit_departement' => $department,
+                    'kode_unit' => $departmentCode,
+                    'tanggal' => $dateKey,
+                    'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
+                    'jam_masuk' => $punchTime->format('Y-m-d H:i:s')
+                ];
             }
         }
 
         $finalOutput = [];
 
-        foreach ($employeeData as $date => $data) {
-            $formattedData = [
-                'tanggal' => $date,
-                'data' => array_values($data),
-            ];
+        foreach ($employeeData as $empCode => $data) {
+            $formattedAbsen = [];
+            foreach ($data['absen'] as $absenData) {
+                $formattedAbsen[] = $absenData;
+            }
 
-            $finalOutput[] = $formattedData;
+            $finalOutput[] = [
+                'nama_pegawai' => $data['nama_pegawai'],
+                'total_absen' => $data['total_absen'],
+                'absen' => $formattedAbsen
+            ];
         }
 
         return response()->json($finalOutput);

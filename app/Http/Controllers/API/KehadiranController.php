@@ -147,6 +147,16 @@ class KehadiranController extends Controller
                 $department = $employee->department->dept_name;
                 $departmentCode = $employee->department->dept_code;
 
+                // Determine the day of the week and jenis_absen
+                $dayOfWeek = $punchTime->dayOfWeek;
+                $isFastingMonth = $this->isRamadan($punchTime);
+
+                if ($dayOfWeek == Carbon::FRIDAY) {
+                    $jenisAbsen = $isFastingMonth ? 'normal_jumat_puasa' : 'normal_jumat';
+                } else {
+                    $jenisAbsen = $isFastingMonth ? 'normal_puasa' : 'normal';
+                }
+
                 if (!isset($employeeData[$empCode])) {
                     $employeeData[$empCode] = [
                         'nama_pegawai' => $employeeName,
@@ -158,21 +168,26 @@ class KehadiranController extends Controller
                 if (!isset($employeeData[$empCode]['absen'][$dateKey])) {
                     $employeeData[$empCode]['absen'][$dateKey] = [
                         'tanggal' => $dateKey,
-                        'data' => []
+                        'nip' => $employeeNIP,
+                        'username' => $employeeUsername,
+                        'nama_pegawai' => $employeeName,
+                        'unit_departement' => $department,
+                        'kode_unit' => $departmentCode,
+                        'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
+                        'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
+                        'jenis_absen' => $jenisAbsen
                     ];
                     $employeeData[$empCode]['total_absen'] += 1;
+                } else {
+                    // Update jam_keluar if the current punch time is later than the stored jam_keluar
+                    if ($punchTime->greaterThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_keluar']))) {
+                        $employeeData[$empCode]['absen'][$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
+                    }
+                    // Update jam_masuk if the current punch time is earlier than the stored jam_masuk
+                    if ($punchTime->lessThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_masuk']))) {
+                        $employeeData[$empCode]['absen'][$dateKey]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                    }
                 }
-
-                $employeeData[$empCode]['absen'][$dateKey]['data'][] = [
-                    'nip' => $employeeNIP,
-                    'username' => $employeeUsername,
-                    'nama_pegawai' => $employeeName,
-                    'unit_departement' => $department,
-                    'kode_unit' => $departmentCode,
-                    'tanggal' => $dateKey,
-                    'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
-                    'jam_masuk' => $punchTime->format('Y-m-d H:i:s')
-                ];
             }
         }
 
@@ -181,7 +196,20 @@ class KehadiranController extends Controller
         foreach ($employeeData as $empCode => $data) {
             $formattedAbsen = [];
             foreach ($data['absen'] as $absenData) {
-                $formattedAbsen[] = $absenData;
+                $formattedAbsen[] = [
+                    'tanggal' => $absenData['tanggal'],
+                    'data' => [[
+                        'nip' => $absenData['nip'],
+                        'username' => $absenData['username'],
+                        'nama_pegawai' => $absenData['nama_pegawai'],
+                        'unit_departement' => $absenData['unit_departement'],
+                        'kode_unit' => $absenData['kode_unit'],
+                        'tanggal' => $absenData['tanggal'],
+                        'jam_keluar' => $absenData['jam_keluar'],
+                        'jam_masuk' => $absenData['jam_masuk'],
+                        'jenis_absen' => $absenData['jenis_absen']
+                    ]]
+                ];
             }
 
             $finalOutput[] = [
@@ -324,5 +352,12 @@ class KehadiranController extends Controller
 
     static function presensiOtomatis()
     {
+    }
+
+    function isRamadan($date)
+    {
+        $ramadanStart = Carbon::createFromDate($date->year, 3, 11);
+        $ramadanEnd = Carbon::createFromDate($date->year, 4, 9);
+        return $date->between($ramadanStart, $ramadanEnd);
     }
 }

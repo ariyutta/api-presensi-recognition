@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\IClockTransaction;
 use App\Models\PersonnelEmployee;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 
 class KehadiranController extends Controller
@@ -97,129 +98,136 @@ class KehadiranController extends Controller
 
     function index_dawai(Request $request)
     {
-        // Mendapatkan tahun dan bulan dari request
-        $tahun = $request->set_tahun;
-        $bulan = $request->set_bulan;
+        try {
+            // Mendapatkan tahun dan bulan dari request
+            $tahun = $request->set_tahun;
+            $bulan = $request->set_bulan;
 
-        // Menghitung jumlah hari dalam bulan yang diminta
-        $jumlahHari = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
+            // Menghitung jumlah hari dalam bulan yang diminta
+            $jumlahHari = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
 
-        // Membentuk tanggal awal dan akhir
-        $tanggalAwal = "$tahun-$bulan-01 00:00:00";
-        $tanggalAkhir = "$tahun-$bulan-$jumlahHari 23:59:59";
+            // Membentuk tanggal awal dan akhir
+            $tanggalAwal = "$tahun-$bulan-01 00:00:00";
+            $tanggalAkhir = "$tahun-$bulan-$jumlahHari 23:59:59";
 
-        $punches = IClockTransaction::orderBy('punch_time', 'desc');
+            $punches = IClockTransaction::orderBy('punch_time', 'desc');
 
-        if ($request->username) {
-            $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
-                $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
-                    ->orWhere('nickname', 'LIKE', '%' . $request->username . '%');
-            });
-        }
-
-        if ($request->department_id) {
-            $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
-                $pegawai->whereHas('department', function ($unit) use ($request) {
-                    $unit->where('dept_code', $request->department_id);
+            if ($request->username) {
+                $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
+                    $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
+                        ->orWhere('nickname', 'LIKE', '%' . $request->username . '%');
                 });
-            });
-        }
+            }
 
-        if ($tanggalAwal != null && $tanggalAkhir != null) {
-            $punches = $punches->whereBetween('punch_time', [$tanggalAwal, $tanggalAkhir]);
-        }
+            if ($request->department_id) {
+                $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
+                    $pegawai->whereHas('department', function ($unit) use ($request) {
+                        $unit->where('dept_code', $request->department_id);
+                    });
+                });
+            }
 
-        $punches = $punches->get();
+            if ($tanggalAwal != null && $tanggalAkhir != null) {
+                $punches = $punches->whereBetween('punch_time', [$tanggalAwal, $tanggalAkhir]);
+            }
 
-        $employeeData = [];
+            $punches = $punches->get();
 
-        foreach ($punches as $punch) {
-            $empCode = $punch->emp_code;
-            $punchTime = Carbon::parse($punch->punch_time);
-            $dateKey = $punchTime->toDateString();
+            $employeeData = [];
 
-            $employee = PersonnelEmployee::where('emp_code', $empCode)->first();
+            foreach ($punches as $punch) {
+                $empCode = $punch->emp_code;
+                $punchTime = Carbon::parse($punch->punch_time);
+                $dateKey = $punchTime->toDateString();
 
-            if ($employee) {
-                $employeeName = $employee->first_name;
-                $employeeUsername = $employee->last_name;
-                $employeeNIP = $employee->nickname;
-                $department = $employee->department->dept_name;
-                $departmentCode = $employee->department->dept_code;
+                $employee = PersonnelEmployee::where('emp_code', $empCode)->first();
 
-                // Determine the day of the week and jenis_absen
-                $dayOfWeek = $punchTime->dayOfWeek;
-                $isFastingMonth = $this->isRamadan($punchTime);
+                if ($employee) {
+                    $employeeName = $employee->first_name;
+                    $employeeUsername = $employee->last_name;
+                    $employeeNIP = $employee->nickname;
+                    $department = $employee->department->dept_name;
+                    $departmentCode = $employee->department->dept_code;
 
-                if ($dayOfWeek == Carbon::FRIDAY) {
-                    $jenisAbsen = $isFastingMonth ? 'normal_jumat_puasa' : 'normal_jumat';
-                } else {
-                    $jenisAbsen = $isFastingMonth ? 'normal_puasa' : 'normal';
-                }
+                    // Determine the day of the week and jenis_absen
+                    $dayOfWeek = $punchTime->dayOfWeek;
+                    $isFastingMonth = $this->isRamadan($punchTime);
 
-                if (!isset($employeeData[$empCode])) {
-                    $employeeData[$empCode] = [
-                        'nama_pegawai' => $employeeName,
-                        'total_absen' => 0,
-                        'absen' => []
-                    ];
-                }
-
-                if (!isset($employeeData[$empCode]['absen'][$dateKey])) {
-                    $employeeData[$empCode]['absen'][$dateKey] = [
-                        'tanggal' => $dateKey,
-                        'nip' => $employeeNIP,
-                        'username' => $employeeUsername,
-                        'nama_pegawai' => $employeeName,
-                        'unit_departement' => $department,
-                        'kode_unit' => $departmentCode,
-                        'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
-                        'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
-                        'jenis_absen' => $jenisAbsen
-                    ];
-                    $employeeData[$empCode]['total_absen'] += 1;
-                } else {
-                    // Update jam_keluar if the current punch time is later than the stored jam_keluar
-                    if ($punchTime->greaterThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_keluar']))) {
-                        $employeeData[$empCode]['absen'][$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
+                    if ($dayOfWeek == Carbon::FRIDAY) {
+                        $jenisAbsen = $isFastingMonth ? 'normal_jumat_puasa' : 'normal_jumat';
+                    } else {
+                        $jenisAbsen = $isFastingMonth ? 'normal_puasa' : 'normal';
                     }
-                    // Update jam_masuk if the current punch time is earlier than the stored jam_masuk
-                    if ($punchTime->lessThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_masuk']))) {
-                        $employeeData[$empCode]['absen'][$dateKey]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+
+                    if (!isset($employeeData[$empCode])) {
+                        $employeeData[$empCode] = [
+                            'nama_pegawai' => $employeeName,
+                            'total_absen' => 0,
+                            'absen' => []
+                        ];
+                    }
+
+                    if (!isset($employeeData[$empCode]['absen'][$dateKey])) {
+                        $employeeData[$empCode]['absen'][$dateKey] = [
+                            'tanggal' => $dateKey,
+                            'nip' => $employeeNIP,
+                            'username' => $employeeUsername,
+                            'nama_pegawai' => $employeeName,
+                            'unit_departement' => $department,
+                            'kode_unit' => $departmentCode,
+                            'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
+                            'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
+                            'jenis_absen' => $jenisAbsen
+                        ];
+                        $employeeData[$empCode]['total_absen'] += 1;
+                    } else {
+                        // Update jam_keluar if the current punch time is later than the stored jam_keluar
+                        if ($punchTime->greaterThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_keluar']))) {
+                            $employeeData[$empCode]['absen'][$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
+                        }
+                        // Update jam_masuk if the current punch time is earlier than the stored jam_masuk
+                        if ($punchTime->lessThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_masuk']))) {
+                            $employeeData[$empCode]['absen'][$dateKey]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                        }
                     }
                 }
             }
-        }
 
-        $finalOutput = [];
+            $finalOutput = [];
 
-        foreach ($employeeData as $empCode => $data) {
-            $formattedAbsen = [];
-            foreach ($data['absen'] as $absenData) {
-                $formattedAbsen[] = [
-                    'tanggal' => $absenData['tanggal'],
-                    'data' => [[
-                        'nip' => $absenData['nip'],
-                        'username' => $absenData['username'],
-                        'nama_pegawai' => $absenData['nama_pegawai'],
-                        'unit_departement' => $absenData['unit_departement'],
-                        'kode_unit' => $absenData['kode_unit'],
+            foreach ($employeeData as $empCode => $data) {
+                $formattedAbsen = [];
+                foreach ($data['absen'] as $absenData) {
+                    $formattedAbsen[] = [
                         'tanggal' => $absenData['tanggal'],
-                        'jam_keluar' => $absenData['jam_keluar'],
-                        'jam_masuk' => $absenData['jam_masuk'],
-                        'jenis_absen' => $absenData['jenis_absen']
-                    ]]
+                        'data' => [[
+                            'nip' => $absenData['nip'],
+                            'username' => $absenData['username'],
+                            'nama_pegawai' => $absenData['nama_pegawai'],
+                            'unit_departement' => $absenData['unit_departement'],
+                            'kode_unit' => $absenData['kode_unit'],
+                            'tanggal' => $absenData['tanggal'],
+                            'jam_keluar' => $absenData['jam_keluar'],
+                            'jam_masuk' => $absenData['jam_masuk'],
+                            'jenis_absen' => $absenData['jenis_absen']
+                        ]]
+                    ];
+                }
+
+                $finalOutput[] = [
+                    'nama_pegawai' => $data['nama_pegawai'],
+                    'total_absen' => $data['total_absen'],
+                    'absen' => $formattedAbsen
                 ];
             }
 
-            $finalOutput[] = [
-                'nama_pegawai' => $data['nama_pegawai'],
-                'total_absen' => $data['total_absen'],
-                'absen' => $formattedAbsen
-            ];
+            return response()->json($finalOutput);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 500,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json($finalOutput);
     }
 
     function transaksi_kehadiran()

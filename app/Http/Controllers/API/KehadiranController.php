@@ -7,7 +7,9 @@ use App\Models\IClockTransaction;
 use App\Models\PersonnelEmployee;
 use Carbon\Carbon;
 use Exception;
+use GuzzleHttp\Client;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class KehadiranController extends Controller
 {
@@ -99,18 +101,15 @@ class KehadiranController extends Controller
     function index_dawai(Request $request)
     {
         try {
-            // Mendapatkan tahun dan bulan dari request
             $tahun = $request->set_tahun;
             $bulan = $request->set_bulan;
 
-            // Menghitung jumlah hari dalam bulan yang diminta
             $jumlahHari = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
 
-            // Membentuk tanggal awal dan akhir
             $tanggalAwal = "$tahun-$bulan-01 00:00:00";
             $tanggalAkhir = "$tahun-$bulan-$jumlahHari 23:59:59";
 
-            $punches = IClockTransaction::orderBy('punch_time', 'desc');
+            $punches = IClockTransaction::orderBy('punch_time', 'asc');
 
             if ($request->username) {
                 $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
@@ -149,7 +148,6 @@ class KehadiranController extends Controller
                     $department = $employee->department->dept_name;
                     $departmentCode = $employee->department->dept_code;
 
-                    // Determine the day of the week and jenis_absen
                     $dayOfWeek = $punchTime->dayOfWeek;
                     $isFastingMonth = $this->isRamadan($punchTime);
 
@@ -181,13 +179,11 @@ class KehadiranController extends Controller
                         ];
                         $employeeData[$empCode]['total_absen'] += 1;
                     } else {
-                        // Update jam_keluar if the current punch time is later than the stored jam_keluar
-                        if ($punchTime->greaterThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_keluar']))) {
-                            $employeeData[$empCode]['absen'][$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
-                        }
-                        // Update jam_masuk if the current punch time is earlier than the stored jam_masuk
                         if ($punchTime->lessThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_masuk']))) {
                             $employeeData[$empCode]['absen'][$dateKey]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                        }
+                        if ($punchTime->greaterThan(Carbon::parse($employeeData[$empCode]['absen'][$dateKey]['jam_keluar']))) {
+                            $employeeData[$empCode]['absen'][$dateKey]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
                         }
                     }
                 }
@@ -262,7 +258,7 @@ class KehadiranController extends Controller
             }
 
             $randomSecond = str_pad(random_int(0, 59), 2, '0', STR_PAD_LEFT); // Detik antara 00 - 59
-            $randomMicrosecond = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
+            $randomMicrosecond = str_pad(random_int(111111, 999999), 6, '0', STR_PAD_LEFT); // Mikrodetik antara 000000 - 999999
 
             $randomTime = "$randomHour:$randomMinute:$randomSecond";
 
@@ -358,14 +354,194 @@ class KehadiranController extends Controller
         ], 200);
     }
 
-    static function presensiOtomatis()
-    {
-    }
-
     function isRamadan($date)
     {
         $ramadanStart = Carbon::createFromDate($date->year, 3, 11);
         $ramadanEnd = Carbon::createFromDate($date->year, 4, 9);
         return $date->between($ramadanStart, $ramadanEnd);
+    }
+
+    function absen_manual_per_unit(Request $request)
+    {
+        // $request = request();
+
+        // DB::beginTransaction();
+        // try {
+        //     $employees = PersonnelEmployee::select('id', 'emp_code as id_senja', 'nickname as nip', 'first_name as nama_pegawai')
+        //         ->whereHas('department', function ($q) use ($request) {
+        //             $q->where('dept_code', $request->department_id);
+        //         });
+
+        //     if ($request->nip != null) {
+        //         $employees = $employees->whereIn('nickname', $request->nip);
+        //     }
+
+        //     $employees = $employees->get();
+
+        //     foreach ($employees as $employee) {
+        //         $randomTime = Carbon::today()->addHours(random_int($request->jam, $request->jam))
+        //             ->addMinutes(random_int(0, 30))
+        //             ->addSeconds(random_int(0, 59))
+        //             ->toTimeString();
+
+        //         IClockTransaction::create([
+        //             'emp_code'        => $employee->id_senja,
+        //             'punch_time'      => $request->tanggal . ' ' . $randomTime . '-07',
+        //             'punch_state'     => $request->jenis_absen === 'masuk' ? 0 : 1,
+        //             'verify_type'     => 0,
+        //             'source'          => 15,
+        //             'purpose'         => 41,
+        //             'is_attendance'   => 1,
+        //             'upload_time'     => $request->tanggal . ' ' . $randomTime . '.' . str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT) . '-07',
+        //             'sync_status'     => 0,
+        //             'is_mask'         => 255,
+        //             'temperature'     => 255,
+        //             'emp_id'          => $employee->id,
+        //             'company_code'    => 1,
+        //         ]);
+        //     }
+
+        //     DB::commit();
+
+        //     return response()->json([
+        //         'status_code' => 201,
+        //         'message'     => 'Data Berhasil Disimpan!'
+        //     ], 201);
+        // } catch (Exception $e) {
+        //     DB::rollBack();
+        //     return response()->json([
+        //         'status_code' => 500,
+        //         'message'     => 'Terjadi Kesalahan : ' . $e->getMessage()
+        //     ], 500);
+        // }
+
+        $request = request();
+
+        DB::beginTransaction();
+        try {
+            $employees = PersonnelEmployee::select('id', 'emp_code as id_senja', 'nickname as nip', 'first_name as nama_pegawai')
+                ->whereHas('department', function ($q) use ($request) {
+                    $q->where('dept_code', $request->department_id);
+                });
+
+            if ($request->nip != null) {
+                $employees = $employees->whereIn('nickname', $request->nip);
+            }
+
+            $employees = $employees->get();
+
+            $startDate = Carbon::parse($request->start_date);
+            $endDate = Carbon::parse($request->end_date);
+
+            // Loop through each day in the month
+            while ($startDate->lte($endDate)) {
+                foreach ($employees as $employee) {
+                    $randomTime = $startDate->copy()->addHours(random_int($request->jam, $request->jam))
+                        ->addMinutes(random_int(0, 30))
+                        ->addSeconds(random_int(0, 59))
+                        ->toTimeString();
+
+                    IClockTransaction::create([
+                        'emp_code'        => $employee->id_senja,
+                        'punch_time'      => $startDate->toDateString() . ' ' . $randomTime . '-07',
+                        'punch_state'     => $request->jenis_absen === 'masuk' ? 0 : 1,
+                        'verify_type'     => 0,
+                        'source'          => 15,
+                        'purpose'         => 41,
+                        'is_attendance'   => 1,
+                        'upload_time'     => $startDate->toDateString() . ' ' . $randomTime . '.' . str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT) . '-07',
+                        'sync_status'     => 0,
+                        'is_mask'         => 255,
+                        'temperature'     => 255,
+                        'emp_id'          => $employee->id,
+                        'company_code'    => 1,
+                    ]);
+                }
+                $startDate->addDay();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status_code' => 201,
+                'message'     => 'Data Berhasil Disimpan!'
+            ], 201);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status_code' => 500,
+                'message'     => 'Terjadi Kesalahan : ' . $e->getMessage()
+            ], 500);
+        }
+
+        // $client = new Client();
+        // $apiUrl = 'http://172.16.40.85:8002/api/service/get-hari-kerja?tanggal=' . $request->tanggal;
+
+        // try {
+        //     // Lakukan request ke API
+        //     $response = $client->get($apiUrl);
+        //     $data = json_decode($response->getBody(), true);
+
+        //     // Ambil daftar hari kerja dari API response
+        //     $workingDays = $data['hari_kerja'];
+
+        //     DB::beginTransaction();
+        //     try {
+        //         $employees = PersonnelEmployee::select('id', 'emp_code as id_senja', 'nickname as nip', 'first_name as nama_pegawai')
+        //             ->whereHas('department', function ($q) use ($request) {
+        //                 $q->where('dept_code', $request->department_id);
+        //             });
+
+        //         if ($request->nip != null) {
+        //             $employees = $employees->whereIn('nickname', $request->nip);
+        //         }
+
+        //         $employees = $employees->get();
+
+        //         // Loop through each working day
+        //         foreach ($workingDays as $workingDay) {
+        //             foreach ($employees as $employee) {
+        //                 $randomTime = Carbon::parse($workingDay)->addHours(random_int($request->jam, $request->jam))
+        //                     ->addMinutes(random_int(0, 30))
+        //                     ->addSeconds(random_int(0, 59))
+        //                     ->toTimeString();
+
+        //                 IClockTransaction::create([
+        //                     'emp_code'        => $employee->id_senja,
+        //                     'punch_time'      => $workingDay . ' ' . $randomTime . '-07',
+        //                     'punch_state'     => $request->jenis_absen === 'masuk' ? 0 : 1,
+        //                     'verify_type'     => 0,
+        //                     'source'          => 15,
+        //                     'purpose'         => 41,
+        //                     'is_attendance'   => 1,
+        //                     'upload_time'     => $workingDay . ' ' . $randomTime . '.' . str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT) . '-07',
+        //                     'sync_status'     => 0,
+        //                     'is_mask'         => 255,
+        //                     'temperature'     => 255,
+        //                     'emp_id'          => $employee->id,
+        //                     'company_code'    => 1,
+        //                 ]);
+        //             }
+        //         }
+
+        //         DB::commit();
+
+        //         return response()->json([
+        //             'status_code' => 201,
+        //             'message'     => 'Data Berhasil Disimpan!'
+        //         ], 201);
+        //     } catch (Exception $e) {
+        //         DB::rollBack();
+        //         return response()->json([
+        //             'status_code' => 500,
+        //             'message'     => 'Terjadi Kesalahan : ' . $e->getMessage()
+        //         ], 500);
+        //     }
+        // } catch (Exception $e) {
+        //     return response()->json([
+        //         'status_code' => 500,
+        //         'message'     => 'Terjadi Kesalahan saat menghubungi API: ' . $e->getMessage()
+        //     ], 500);
+        // }
     }
 }

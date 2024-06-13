@@ -34,4 +34,5 @@ Route::get('/getNIH', [PegawaiController::class, 'getNIH'])->name('getNIH');
 Route::prefix('kehadiran')->name('kehadiran.')->group(function () {
     Route::post('/store-jam-masuk', [KehadiranController::class, 'store_masuk'])->name('store_masuk');
     Route::post('/store-jam-keluar', [KehadiranController::class, 'store_keluar'])->name('store_keluar');
+    Route::post('/store-manual-unit', [KehadiranController::class, 'absen_manual_per_unit'])->name('absen_manual_per_unit');
 });

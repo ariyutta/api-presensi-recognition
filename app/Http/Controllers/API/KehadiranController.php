@@ -15,87 +15,99 @@ class KehadiranController extends Controller
 {
     function index(Request $request)
     {
-        $periode = explode(' - ', $request->periode);
+        try {
+            $periode = explode(' - ', $request->periode);
 
-        if (count($periode) == 2) {
-            $startDate = $periode[0];
-            $endDate = $periode[1];
-        } else if (count($periode) == 1) {
-            $startDate = $periode[0];
-            $endDate = $periode[0];
-        } else {
-            $startDate = date('Y-m-d') . ' 00:00:00';
-            $endDate =  date('Y-m-d') . ' 23:59:59';
-        }
+            if (count($periode) == 2) {
+                $startDate = $periode[0];
+                $endDate = $periode[1];
+            } else if (count($periode) == 1) {
+                $startDate = $periode[0];
+                $endDate = $periode[0];
+            } else {
+                $startDate = date('Y-m-d') . ' 00:00:00';
+                $endDate =  date('Y-m-d') . ' 23:59:59';
+            }
 
-        $punches = IClockTransaction::orderBy('punch_time', 'desc');
+            $punches = IClockTransaction::orderBy('punch_time', 'asc'); // Changed to 'asc' to get the earliest first
 
-        if ($request->username) {
-            $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
-                $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
-                    ->orWhere('last_name', 'LIKE', '%' . $request->username . '%');
-            });
-        }
-
-        if ($request->department_id) {
-            $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
-                $pegawai->whereHas('department', function ($unit) use ($request) {
-                    $unit->where('dept_code', $request->department_id);
+            if ($request->username) {
+                $punches = $punches->whereHas('pegawai', function ($q) use ($request) {
+                    $q->whereRaw('LOWER(first_name) LIKE ?', ['%' . strtolower($request->username) . '%'])
+                        ->orWhere('last_name', 'LIKE', '%' . $request->username . '%');
                 });
-            });
-        }
+            }
 
-        if ($startDate != null && $endDate != null) {
-            $punches = $punches->whereBetween('punch_time', [$startDate, $endDate]);
-        }
+            if ($request->department_id) {
+                $punches = $punches->whereHas('pegawai', function ($pegawai) use ($request) {
+                    $pegawai->whereHas('department', function ($unit) use ($request) {
+                        $unit->where('dept_code', $request->department_id);
+                    });
+                });
+            }
 
-        $punches = $punches->get();
+            if ($startDate != null && $endDate != null) {
+                $punches = $punches->whereBetween('punch_time', [$startDate, $endDate]);
+            }
 
-        $employeeData = [];
+            $punches = $punches->get();
 
-        foreach ($punches as $punch) {
-            $empCode = $punch->emp_code;
-            $punchTime = Carbon::parse($punch->punch_time);
-            $dateKey = $punchTime->toDateString();
+            $employeeData = [];
 
-            $employee = PersonnelEmployee::where('emp_code', $empCode)->first();
+            foreach ($punches as $punch) {
+                $empCode = $punch->emp_code;
+                $punchTime = Carbon::parse($punch->punch_time);
+                $dateKey = $punchTime->toDateString();
 
-            if ($employee) {
-                $employeeName = $employee->first_name;
-                $employeeUsername = $employee->last_name;
-                $employeeNIP = $employee->nickname;
-                $department = $employee->department->dept_name;
-                $departmentCode = $employee->department->dept_code;
+                $employee = PersonnelEmployee::where('emp_code', $empCode)->first();
 
-                if (!isset($employeeData[$dateKey][$empCode])) {
-                    $employeeData[$dateKey][$empCode] = [
-                        'nip' => $employeeNIP,
-                        'username' => $employeeUsername,
-                        'nama_pegawai' => $employeeName,
-                        'unit_departement' => $department,
-                        'kode_unit' => $departmentCode,
-                        'tanggal' => $punchTime->format('Y-m-d'),
-                        'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
-                        'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
-                    ];
-                } else {
-                    $employeeData[$dateKey][$empCode]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                if ($employee) {
+                    $employeeName = $employee->first_name;
+                    $employeeUsername = $employee->last_name;
+                    $employeeNIP = $employee->nickname;
+                    $department = $employee->department->dept_name;
+                    $departmentCode = $employee->department->dept_code;
+
+                    if (!isset($employeeData[$dateKey][$empCode])) {
+                        $employeeData[$dateKey][$empCode] = [
+                            'nip' => $employeeNIP,
+                            'username' => $employeeUsername,
+                            'nama_pegawai' => $employeeName,
+                            'unit_departement' => $department,
+                            'kode_unit' => $departmentCode,
+                            'tanggal' => $punchTime->format('Y-m-d'),
+                            'jam_masuk' => $punchTime->format('Y-m-d H:i:s'),
+                            'jam_keluar' => $punchTime->format('Y-m-d H:i:s'),
+                        ];
+                    } else {
+                        if ($punchTime->lessThan(Carbon::parse($employeeData[$dateKey][$empCode]['jam_masuk']))) {
+                            $employeeData[$dateKey][$empCode]['jam_masuk'] = $punchTime->format('Y-m-d H:i:s');
+                        }
+                        if ($punchTime->greaterThan(Carbon::parse($employeeData[$dateKey][$empCode]['jam_keluar']))) {
+                            $employeeData[$dateKey][$empCode]['jam_keluar'] = $punchTime->format('Y-m-d H:i:s');
+                        }
+                    }
                 }
             }
+
+            $finalOutput = [];
+
+            foreach ($employeeData as $date => $data) {
+                $formattedData = [
+                    'tanggal' => $date,
+                    'data' => array_values($data),
+                ];
+
+                $finalOutput[] = $formattedData;
+            }
+
+            return response()->json($finalOutput);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 500,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $finalOutput = [];
-
-        foreach ($employeeData as $date => $data) {
-            $formattedData = [
-                'tanggal' => $date,
-                'data' => array_values($data),
-            ];
-
-            $finalOutput[] = $formattedData;
-        }
-
-        return response()->json($finalOutput);
     }
 
     function index_dawai(Request $request)

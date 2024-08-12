@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\API\CetakController;
 use App\Http\Controllers\API\KehadiranController;
 use App\Http\Controllers\API\PegawaiController;
 use App\Http\Controllers\API\UnitController;
@@ -35,4 +36,8 @@ Route::prefix('kehadiran')->name('kehadiran.')->group(function () {
     Route::post('/store-jam-masuk', [KehadiranController::class, 'store_masuk'])->name('store_masuk');
     Route::post('/store-jam-keluar', [KehadiranController::class, 'store_keluar'])->name('store_keluar');
     Route::post('/store-manual-unit', [KehadiranController::class, 'absen_manual_per_unit'])->name('absen_manual_per_unit');
+});
+
+Route::prefix('cetak')->name('cetak.')->group(function () {
+    Route::post('/kehadiran-tendik', [CetakController::class, 'kehadiran_tendik'])->name('kehadiran_tendik');
 });

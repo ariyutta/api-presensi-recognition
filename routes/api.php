@@ -40,4 +40,5 @@ Route::prefix('kehadiran')->name('kehadiran.')->group(function () {
 
 Route::prefix('cetak')->name('cetak.')->group(function () {
     Route::post('/kehadiran-tendik', [CetakController::class, 'kehadiran_tendik'])->name('kehadiran_tendik');
+    Route::post('/kehadiran-dosen', [CetakController::class, 'kehadiran_dosen'])->name('kehadiran_dosen');
 });

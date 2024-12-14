@@ -19,8 +19,8 @@ class UnitController extends Controller
     {
         $strSQL = PersonnelDepartment::with(['pegawai' => function ($q) {
             $q->select('id', 'emp_code', 'first_name', 'photo', 'department_id');
-            return $q;
-        }])->where('id', $idUnit)->get();
+            return $q->orderBy('first_name', 'ASC');
+        }])->where('dept_code', $idUnit)->get();
 
         return response()->json($strSQL);
     }
